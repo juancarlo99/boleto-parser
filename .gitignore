@@ -2,3 +2,4 @@
 .phpunit.cache/
 /build/
 composer.lock
+manual-test.php
