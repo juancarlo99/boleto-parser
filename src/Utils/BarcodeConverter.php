@@ -9,8 +9,8 @@ use BoletoParser\Exceptions\InvalidBoletoException;
 /**
  * Converts between FEBRABAN barcode (44 digits) and linha digitável (47 digits).
  *
- * Linha layout (1-based): [1-4 bank+curr][5-8 free][9 CD1][10-19 free][20 CD2][21-30 free][31 CD3][32 DV][33-36 factor][37-46 value]
- * Barcode:                 [1-3 bank][4 curr][5 DV][6-9 factor][10-19 value][20-44 free 25]
+ * Linha layout (1-based): [1-4 bank+curr][5-8 free][9 CD1][10-19 free][20 CD2][21-31 free][32 CD3][33 DV][34-37 factor][38-47 value]
+ * Barcode:                 [1-3 bank][4 curr][5 DV][6-9 factor][10-19 value][20-44 free 25 = 4+10+11]
  */
 final class BarcodeConverter
 {
@@ -26,22 +26,21 @@ final class BarcodeConverter
     private const LINHA_FREE_BLOCK2_END = 19;
     private const LINHA_CD2_POS = 19;
     private const LINHA_FREE_BLOCK3_START = 20;
-    private const LINHA_FREE_BLOCK3_END = 30;
-    private const LINHA_CD3_POS = 30;
-    private const LINHA_DV_POS = 31;
-    private const LINHA_FACTOR_START = 32;
+    private const LINHA_FREE_BLOCK3_LEN = 11;
+    private const LINHA_CD3_POS = 31;
+    private const LINHA_DV_POS = 32;
+    private const LINHA_FACTOR_START = 33;
     private const LINHA_FACTOR_LENGTH = 4;
-    private const LINHA_VALUE_START = 36;
+    private const LINHA_VALUE_START = 37;
     private const LINHA_VALUE_LENGTH = 10;
 
-    /** Barcode indices (0-based). */
+    /** Barcode indices (0-based). Free field 25 digits = 4+10+11. */
     private const BARCODE_FREE_START = 19;
     private const BARCODE_FREE_BLOCK1_LEN = 4;
     private const BARCODE_FREE_BLOCK2_START = 23;
     private const BARCODE_FREE_BLOCK2_LEN = 10;
     private const BARCODE_FREE_BLOCK3_START = 33;
-    private const BARCODE_FREE_BLOCK3_LEN = 10;
-    private const FREE_FIELD_PADDING = '0';
+    private const BARCODE_FREE_BLOCK3_LEN = 11;
 
     /**
      * Convert linha digitável (47 digits) to barcode (44 digits).
@@ -63,10 +62,9 @@ final class BarcodeConverter
             . $digits[self::LINHA_DV_POS]
             . self::slice($digits, self::LINHA_FACTOR_START, self::LINHA_FACTOR_LENGTH)
             . self::slice($digits, self::LINHA_VALUE_START, self::LINHA_VALUE_LENGTH)
-            . self::FREE_FIELD_PADDING
             . self::slice($digits, self::LINHA_BANK_CURRENCY_END, self::LINHA_FREE_BLOCK1_END - self::LINHA_BANK_CURRENCY_END)
             . self::slice($digits, self::LINHA_FREE_BLOCK2_START, self::LINHA_FREE_BLOCK2_END - self::LINHA_FREE_BLOCK2_START)
-            . self::slice($digits, self::LINHA_FREE_BLOCK3_START, self::LINHA_FREE_BLOCK3_END - self::LINHA_FREE_BLOCK3_START);
+            . self::slice($digits, self::LINHA_FREE_BLOCK3_START, self::LINHA_FREE_BLOCK3_LEN);
 
         if (strlen($barcode) !== self::BARCODE_LENGTH) {
             throw InvalidBoletoException::invalidFormat(
@@ -115,6 +113,23 @@ final class BarcodeConverter
             . self::slice($digits, 9, self::LINHA_VALUE_LENGTH);
     }
 
+    /** @param list<string> $digits */
+    private static function validateLinhaBlockChecksums(array $digits): void
+    {
+        $block1 = self::slice($digits, 0, self::LINHA_CD1_POS);
+        if ((string) CheckDigit::mod10($block1) !== (string) $digits[self::LINHA_CD1_POS]) {
+            throw InvalidBoletoException::checksumFailure('campo 1');
+        }
+        $block2 = self::slice($digits, self::LINHA_FREE_BLOCK2_START, self::LINHA_FREE_BLOCK2_END - self::LINHA_FREE_BLOCK2_START);
+        if ((string) CheckDigit::mod10($block2) !== (string) $digits[self::LINHA_CD2_POS]) {
+            throw InvalidBoletoException::checksumFailure('campo 2');
+        }
+        $block3 = self::slice($digits, self::LINHA_FREE_BLOCK3_START, self::LINHA_FREE_BLOCK3_LEN);
+        if ((string) CheckDigit::mod10($block3) !== (string) $digits[self::LINHA_CD3_POS]) {
+            throw InvalidBoletoException::checksumFailure('campo 3');
+        }
+    }
+
     /**
      * Strip spaces and dots; return digits as array of single-char strings.
      *
@@ -147,22 +162,5 @@ final class BarcodeConverter
     private static function slice(array $digits, int $start, int $length): string
     {
         return implode('', array_slice($digits, $start, $length));
-    }
-
-    /** @param list<string> $digits */
-    private static function validateLinhaBlockChecksums(array $digits): void
-    {
-        $block1 = self::slice($digits, 0, self::LINHA_CD1_POS);
-        if ((string) CheckDigit::mod10($block1) !== (string) $digits[self::LINHA_CD1_POS]) {
-            throw InvalidBoletoException::checksumFailure('campo 1');
-        }
-        $block2 = self::slice($digits, self::LINHA_FREE_BLOCK2_START, self::LINHA_FREE_BLOCK2_END - self::LINHA_FREE_BLOCK2_START);
-        if ((string) CheckDigit::mod10($block2) !== (string) $digits[self::LINHA_CD2_POS]) {
-            throw InvalidBoletoException::checksumFailure('campo 2');
-        }
-        $block3 = self::slice($digits, self::LINHA_FREE_BLOCK3_START, self::LINHA_FREE_BLOCK3_END - self::LINHA_FREE_BLOCK3_START);
-        if ((string) CheckDigit::mod10($block3) !== (string) $digits[self::LINHA_CD3_POS]) {
-            throw InvalidBoletoException::checksumFailure('campo 3');
-        }
     }
 }

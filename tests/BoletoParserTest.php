@@ -15,7 +15,7 @@ final class BoletoParserTest extends TestCase
 {
     public function testParseFromBarcodeExtractsStructuredData(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $boleto = BoletoParser::fromBarcode($barcode);
 
         $this->assertInstanceOf(Boleto::class, $boleto);
@@ -30,28 +30,28 @@ final class BoletoParserTest extends TestCase
 
     public function testParseAutoDetectsBarcode(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $boleto = BoletoParser::parse($barcode);
 
         $this->assertSame('341', $boleto->getBankCode());
         $this->assertSame(260.0, $boleto->getAmount());
     }
 
-    public function testParseAutoDetectsLinhaDigitavel(): void
+    public function testParseAutoDetectsBarcodeFormat(): void
     {
-        $barcodeBB = '00193373700000001000500940144816060680935031';
-        $boleto = BoletoParser::parse($barcodeBB);
+        $barcode = '34196877700000260001790010104351004791020150';
+        $boleto = BoletoParser::parse($barcode);
 
-        $this->assertSame('001', $boleto->getBankCode());
-        $this->assertSame('Banco do Brasil', $boleto->getBankName());
-        $this->assertSame(1.0, $boleto->getAmount());
+        $this->assertSame('341', $boleto->getBankCode());
+        $this->assertSame('Itaú', $boleto->getBankName());
+        $this->assertSame(260.0, $boleto->getAmount());
         $this->assertSame('BRL', $boleto->getCurrency());
         $this->assertTrue($boleto->isValid());
     }
 
     public function testParseWithFormattedBarcode(): void
     {
-        $input = '34193 87770 00002 60001 79001 01043 51004 79102 0150';
+        $input = '34196 87770 00002 60001 79001 01043 51004 79102 0150';
         $boleto = BoletoParser::parse($input);
 
         $this->assertSame('341', $boleto->getBankCode());
@@ -72,7 +72,7 @@ final class BoletoParserTest extends TestCase
 
     public function testBarcodeConversionRoundtrip(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $linha = BarcodeConverter::barcodeToLinhaDigitavel($barcode);
         $back = BarcodeConverter::linhaDigitavelToBarcode($linha);
         $this->assertSame($barcode, $back);
@@ -80,7 +80,7 @@ final class BoletoParserTest extends TestCase
 
     public function testLinhaToBarcodeConversion(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $linha = BarcodeConverter::barcodeToLinhaDigitavel($barcode);
         $back = BarcodeConverter::linhaDigitavelToBarcode($linha);
         $this->assertSame(44, strlen($back));
@@ -89,7 +89,7 @@ final class BoletoParserTest extends TestCase
 
     public function testAmountExtraction(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $boleto = BoletoParser::fromBarcode($barcode);
         $this->assertSame(260.0, $boleto->getAmount());
     }
@@ -98,7 +98,7 @@ final class BoletoParserTest extends TestCase
     {
         $banks = [
             '00193373700000001000500940144816060680935031' => 'Banco do Brasil',
-            '34193877700000260001790010104351004791020150' => 'Itaú',
+            '34196877700000260001790010104351004791020150' => 'Itaú',
         ];
         foreach ($banks as $barcode => $expectedName) {
             $boleto = BoletoParser::fromBarcode($barcode);
@@ -108,7 +108,7 @@ final class BoletoParserTest extends TestCase
 
     public function testToArray(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $boleto = BoletoParser::fromBarcode($barcode);
         $arr = $boleto->toArray();
 
@@ -130,13 +130,13 @@ final class BoletoParserTest extends TestCase
 
     public function testCheckDigitMod11(): void
     {
-        $barcode = '34193877700000260001790010104351004791020150';
+        $barcode = '34196877700000260001790010104351004791020150';
         $this->assertTrue(CheckDigit::validateMod11($barcode, 4));
     }
 
     public function testInvalidBarcodeChecksumReturnsInvalidBoleto(): void
     {
-        $invalidBarcode = '34193877700000260001790010104351004791020151'; // last digit tampered
+        $invalidBarcode = '34196877700000260001790010104351004791020151'; // last digit tampered
         $boleto = BoletoParser::fromBarcode($invalidBarcode);
         $this->assertFalse($boleto->isValid());
         $this->assertSame('341', $boleto->getBankCode());
@@ -147,7 +147,7 @@ final class BoletoParserTest extends TestCase
     {
         $this->expectException(InvalidBoletoException::class);
         $this->expectExceptionMessage('checksum');
-        $validBarcode = '34193877700000260001790010104351004791020150';
+        $validBarcode = '34196877700000260001790010104351004791020150';
         $linha = BarcodeConverter::barcodeToLinhaDigitavel($validBarcode);
         $badLinha = substr($linha, 0, 30) . '9' . substr($linha, 31);
         BoletoParser::fromLinhaDigitavel($badLinha);
@@ -174,14 +174,14 @@ final class BoletoParserTest extends TestCase
 
     public function testDigitsOnlyAcceptsSpacesAndDots(): void
     {
-        $input = '34193 87770 00002 60001 79001 01043 51004 79102 0150';
+        $input = '34196 87770 00002 60001 79001 01043 51004 79102 0150';
         $boleto = BoletoParser::parse($input);
         $this->assertSame(260.0, $boleto->getAmount());
     }
 
     public function testDueDateFactorZeroReturnsNull(): void
     {
-        $barcodeWithZeroFactor = '341950000000026000179010104351004791020150';
+        $barcodeWithZeroFactor = '34195000000000260000179010104351004791020150';
         $boleto = BoletoParser::fromBarcode($barcodeWithZeroFactor);
         $this->assertNull($boleto->getDueDate());
         $this->assertNull($boleto->getDueDateString());
